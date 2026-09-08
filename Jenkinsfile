@@ -13,12 +13,13 @@ pipeline {
     steps {
         sh '''
             docker run --rm \
-              -v "$WORKSPACE:/workspace" \
-              -w /workspace \
+              --volumes-from jenkins \
+              -w "$WORKSPACE" \
               python:3.13-slim \
               sh -c "pip install -q -r test-requirements.txt && pytest -q"
         '''
     }
+}
 }
 
         stage('Build Docker Images') {
