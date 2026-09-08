@@ -9,11 +9,17 @@ pipeline {
             }
         }
 
-        stage('Test') {
-            steps {
-                echo 'Running tests...'
-            }
-        }
+       stage('Test') {
+    steps {
+        sh '''
+            docker run --rm \
+              -v "$WORKSPACE:/workspace" \
+              -w /workspace \
+              python:3.13-slim \
+              sh -c "pip install -q -r test-requirements.txt && pytest -q"
+        '''
+    }
+}
 
         stage('Build Docker Images') {
             steps {
