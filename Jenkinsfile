@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_TAG = "${BUILD_NUMBER}"
+    }
+
     stages {
 
         stage('Checkout') {
@@ -24,10 +28,10 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                    docker build -t rihan10/user-service:2.0 ./services/user-service
-                    docker build -t rihan10/product-service:2.0 ./services/product-service
-                    docker build -t rihan10/order-service:2.0 ./services/order-service
-                    docker build -t rihan10/notification-service:2.0 ./services/notification-service
+                    docker build -t rihan10/user-service:$IMAGE_TAG ./services/user-service
+                    docker build -t rihan10/product-service:$IMAGE_TAG ./services/product-service
+                    docker build -t rihan10/order-service:$IMAGE_TAG ./services/order-service
+                    docker build -t rihan10/notification-service:$IMAGE_TAG ./services/notification-service
                 '''
             }
         }
@@ -42,12 +46,37 @@ pipeline {
                     sh '''
                         echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USER" --password-stdin
 
-                        docker push "$DOCKERHUB_USER/user-service:2.0"
-                        docker push "$DOCKERHUB_USER/product-service:2.0"
-                        docker push "$DOCKERHUB_USER/order-service:2.0"
-                        docker push "$DOCKERHUB_USER/notification-service:2.0"
+                        docker push "$DOCKERHUB_USER/user-service:$IMAGE_TAG"
+                        docker push "$DOCKERHUB_USER/product-service:$IMAGE_TAG"
+                        docker push "$DOCKERHUB_USER/order-service:$IMAGE_TAG"
+                        docker push "$DOCKERHUB_USER/notification-service:$IMAGE_TAG"
 
                         docker logout
+                    '''
+                }
+            }
+        }
+
+        stage('Update GitOps') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: 'github-gitops',
+                    usernameVariable: 'GITHUB_USER',
+                    passwordVariable: 'GITHUB_TOKEN'
+                )]) {
+                    sh '''
+                        sed -i "s/tag: \\"[0-9.]*\\"/tag: \\"$IMAGE_TAG\\"/g" microservices/values.yaml
+
+                        git config user.name "Jenkins"
+                        git config user.email "jenkins@localhost"
+
+                        git add microservices/values.yaml
+                        git commit -m "Update image tags to $IMAGE_TAG"
+
+                        git remote set-url origin "https://$GITHUB_USER:$GITHUB_TOKEN@github.com/Rihan286/microservices-cicd-platform.git"
+                        git push origin HEAD:main
+
+                        git remote set-url origin "https://github.com/Rihan286/microservices-cicd-platform.git"
                     '''
                 }
             }
