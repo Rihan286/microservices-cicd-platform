@@ -28,7 +28,22 @@ pipeline {
 
         stage('Push Docker Images') {
             steps {
-                echo 'Docker push stage will be configured after Docker Hub credentials are added.'
+                withCredentials([usernamePassword(
+                    credentialsId: 'dockerhub-credentials',
+                    usernameVariable: 'DOCKERHUB_USER',
+                    passwordVariable: 'DOCKERHUB_PASSWORD'
+                )]) {
+                    sh '''
+                        echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USER" --password-stdin
+
+                        docker push "$DOCKERHUB_USER/user-service:2.0"
+                        docker push "$DOCKERHUB_USER/product-service:2.0"
+                        docker push "$DOCKERHUB_USER/order-service:2.0"
+                        docker push "$DOCKERHUB_USER/notification-service:2.0"
+
+                        docker logout
+                    '''
+                }
             }
         }
     }
